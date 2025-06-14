@@ -37,9 +37,9 @@ require("lazy").setup({
         -- don't get unbind key
         foreign_keys = false,
 
-        -- CC: Centr,Center
-        -- RB: Right,Buttom
-        -- LT: Left,Top
+        -- CC: Center,Center
+        -- BR: Buttom,Right
+        -- TL: Top,Left
         position = "CC",
 
         -- menu: normal menu
