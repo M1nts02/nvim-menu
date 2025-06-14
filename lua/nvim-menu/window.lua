@@ -10,7 +10,7 @@ local function get_win_pos(height, width, gheight, gwidth, position)
   elseif v == "C" then -- center
     row = (gheight - height) * 0.5
   else -- buttom
-    row = gheight - height - 1
+    row = gheight - height - 5
   end
 
   if s == "L" then -- left
