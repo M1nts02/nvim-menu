@@ -163,7 +163,9 @@ require("lazy").setup({
 </details>
 
 <details>
-<summary>Helper(I use it with [debugmaster](https://github.com/miroshQa/debugmaster.nvim))</summary>
+<summary>Helper</summary>
+
+I use it with [debugmaster](https://github.com/miroshQa/debugmaster.nvim)
 
 ```lua
 -- lazy.nvim
