@@ -4,6 +4,9 @@ A neovim plugin for create menu, inspired by [hydra](https://github.com/anuvykla
 
 ## Example
 
+<details>
+<summary>Menu</summary>
+
 ```lua
 -- lazy.nvim
 require("lazy").setup({
@@ -22,45 +25,44 @@ require("lazy").setup({
     local menu = require "nvim-menu"
     menu.add("Menu", {
       config = {
-        -- format = "${FLAG} [${KEY}] ${DESC}",
-        -- flag_len = 1,
+        -- format for list
+        format = "${FLAG} [${KEY}] ${DESC}",
+
+        -- flag's length
+        flag_len = 1,
+
+        -- quit with once key
         quit = false,
+
+        -- don't get unbind key
         foreign_keys = false,
-        window = {
-          position = "CC",
-        },
+
+        -- CC: Centr,Center
+        -- RB: Right,Buttom
+        -- LT: Left,Top
+        position = "CC",
+
+        -- menu: normal menu
+        -- helper: a helper window without keybinds
+        type = "menu",
       },
       items = {
         {
-          "c",
-          function()
-            local enable = (vim.g.cmp_disable == false and vim.b.cmp_disable == false) and true or false
-            if enable then
-              vim.g.cmp_disable = true
-              vim.b.cmp_disable = true
-            else
-              vim.g.cmp_disable = false
-              vim.b.cmp_disable = false
-            end
+          key = "p",
+          desc = "Auto pairs",
+          flag = function()
+            local s = not get_status().g.minipairs_disable
+            return s
           end,
-          {
-            desc = "Auto Completion",
-            flag = function()
-              local enable = (vim.g.cmp_disable == false and vim.b.cmp_disable == false) and true or false
-              if enable then
-                return true
-              else
-                return false
-              end
-            end,
-          },
+        },
+        function()
+          local s = not get_status().g.minipairs_disable
+          update { g = { minipairs_disable = s } }
+        end,
         },
         {
-          "l",
-          function()
-            menu.open "Status line"
-          end,
           {
+            key = "l",
             desc = "Status line",
             quit = true,
             flag = function()
@@ -68,6 +70,9 @@ require("lazy").setup({
               return tostring(s)
             end,
           },
+          function()
+            menu.open "Status line"
+          end,
         },
       },
     })
@@ -81,11 +86,8 @@ require("lazy").setup({
       },
       items = {
         {
-          "1",
-          function()
-            vim.o.laststatus = 1
-          end,
           {
+            key = "1",
             desc = "Status line 1",
             flag = function()
               local s = vim.o.laststatus == 1
@@ -96,13 +98,13 @@ require("lazy").setup({
               end
             end,
           },
+          function()
+            vim.o.laststatus = 1
+          end,
         },
         {
-          "2",
-          function()
-            vim.o.laststatus = 2
-          end,
           {
+            key = "2",
             desc = "Status line 2",
             flag = function()
               local s = vim.o.laststatus == 2
@@ -113,13 +115,13 @@ require("lazy").setup({
               end
             end,
           },
+          function()
+            vim.o.laststatus = 2
+          end,
         },
         {
-          "3",
-          function()
-            vim.o.laststatus = 3
-          end,
           {
+            key = "3",
             desc = "Status line 3",
             flag = function()
               local s = vim.o.laststatus == 3
@@ -130,13 +132,13 @@ require("lazy").setup({
               end
             end,
           },
+          function()
+            vim.o.laststatus = 3
+          end,
         },
         {
-          "0",
-          function()
-            vim.o.laststatus = 0
-          end,
           {
+            key = "0",
             desc = "Status line 0",
             flag = function()
               local s = vim.o.laststatus == 0
@@ -147,6 +149,9 @@ require("lazy").setup({
               end
             end,
           },
+          function()
+            vim.o.laststatus = 0
+          end,
         },
       },
     })
@@ -154,3 +159,61 @@ require("lazy").setup({
   }
 })
 ```
+
+</details>
+
+<details>
+<summary>Helper(I use it with [debugmaster](https://github.com/miroshQa/debugmaster.nvim))</summary>
+
+```lua
+-- lazy.nvim
+require("lazy").setup({
+  {
+  "M1nts02/nvim-menu",
+  dependencies = {
+    "miroshQa/debugmaster.nvim",
+  },
+  keys = {
+    {
+      "<Space>d",
+      function()
+        local dm = require "debugmaster"
+        local menu = require "nvim-menu"
+        dm.mode.toggle()
+        if require("debugmaster.debug.mode").is_active() then
+          menu.open "Debug"
+        else
+          menu.close()
+        end
+      end,
+      desc = "Debugmaster",
+    },
+  },
+  config = function()
+    local menu = require "nvim-menu"
+
+    menu.add("Debug", {
+      config = {
+        format = "${KEY} ${DESC}",
+        position = "RB",
+        type = "helper",
+        quit = false,
+      },
+      items = {
+        { { key = "t", desc = "Breakpoint" } },
+        { { key = "H", desc = "Help" } },
+        { { key = "u", desc = "Side panel" } },
+        { { key = "c", desc = "Start" } },
+        { { key = "o", desc = "Step over" } },
+        { { key = "m", desc = "Step into" } },
+        { { key = "q", desc = "Step out" } },
+        { { key = "r", desc = "Run to cursor" } },
+      },
+    })
+
+  end,
+  }
+})
+```
+
+</details>

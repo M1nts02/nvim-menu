@@ -20,7 +20,7 @@ local function field_format(config, item, flag)
   local line = ""
 
   line = string.gsub(format, "${KEY}", function()
-    return string.format("%-" .. key_len .. "s", item[1])
+    return string.format("%-" .. key_len .. "s", item[1].key)
   end)
 
   line = string.gsub(line, "${FLAG}", function()
@@ -28,7 +28,7 @@ local function field_format(config, item, flag)
   end)
 
   line = string.gsub(line, "${DESC}", function()
-    return string.format("%-" .. desc_len .. "s", item[3].desc)
+    return string.format("%-" .. desc_len .. "s", item[1].desc)
   end)
 
   return line
@@ -64,10 +64,10 @@ function M.create(menu)
 
   local lines = {}
   for k, v in pairs(menu.items) do
-    if v[3].hidden == true then
+    if v[1].hidden == true then
       goto continue
     end
-    local flag = get_flag(v[3].flag)
+    local flag = get_flag(v[1].flag)
     local line = field_format(menu.config, v, flag)
     table.insert(lines, line)
 
@@ -75,7 +75,7 @@ function M.create(menu)
   end
   vim.api.nvim_buf_set_lines(buf_id, 0, -1, true, lines)
 
-  return buf_id, { width = width }
+  return buf_id, width
 end
 
 function M.update(buf_id, menu)
@@ -83,11 +83,11 @@ function M.update(buf_id, menu)
 
   local lines = {}
   for k, v in pairs(menu.items) do
-    if v[3].hidden == true then
+    if v[1].hidden == true then
       goto continue
     end
 
-    local flag = get_flag(v[3].flag)
+    local flag = get_flag(v[1].flag)
     local line = field_format(menu.config, v, flag)
     table.insert(lines, line)
 

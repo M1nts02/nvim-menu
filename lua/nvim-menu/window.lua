@@ -31,10 +31,10 @@ function M.open_window(buf_id, config)
   local gheight = vim.api.nvim_list_uis()[1].height
   local gwidth = vim.api.nvim_list_uis()[1].width
 
-  local width = config.max_width
+  local width = config.width
   local height = config.count
 
-  local position = config.window.position
+  local position = config.position
   position = (position == nil or type(position) ~= "string") and "BR" or position
 
   local row, col = get_win_pos(height, width, gheight, gwidth, position)
