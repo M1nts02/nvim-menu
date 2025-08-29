@@ -54,7 +54,9 @@ local function open_menu(name, opt)
         -- if quit = true
         if loop == false then
           quit()
-          item[2]()
+          if item[2] ~= nil and type(item[2]) == "string" then
+            item[2]()
+          end
           return
 
         -- if quit = false
@@ -137,7 +139,9 @@ function M.add(name, menu)
     local key_width = #v[1].key
     max_desc_width = desc_width > max_desc_width and desc_width or max_desc_width
     max_key_width = key_width > max_key_width and key_width or max_key_width
-    count = count + 1
+    if v[1].hidden ~= true then
+      count = count + 1
+    end
 
     -- get keys index
     menu.key_list[v[1].key] = k
