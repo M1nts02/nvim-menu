@@ -28,36 +28,127 @@ define_highlights()
 
 local Menu = {
   menus = {},
-  status = {
-    name = nil,
-    buf_id = nil,
-    win_id = nil,
-    config = {},
-  },
+  menu_stack = {}, -- Stack to keep track of all open menus
+  helper_stack = {}, -- Stack to keep track of all open helpers
 }
-local Status = Menu.status
 
-local function quit()
-  buffer.delete_buffer(Status.buf_id)
-  window.exit_window(Status.win_id)
-  Status.buf_id = nil
-  Status.win_id = nil
-  Status.name = nil
-  Status.config = {}
+-- Helper function to create a new status table
+local function create_status(name, buf_id, win_id, config)
+  return {
+    name = name,
+    buf_id = buf_id,
+    win_id = win_id,
+    config = vim.deepcopy(config or {}),
+  }
 end
 
--- TODO: open menu
+-- Get current menu status (top of menu stack)
+local function get_current_menu_status()
+  return Menu.menu_stack[#Menu.menu_stack] or nil
+end
+
+-- Get current helper status (top of helper stack)
+local function get_current_helper_status()
+  return Menu.helper_stack[#Menu.helper_stack] or nil
+end
+
+-- Get current status based on type
+local function get_current_status(menu_type)
+  if menu_type == "menu" then
+    return get_current_menu_status()
+  elseif menu_type == "helper" then
+    return get_current_helper_status()
+  end
+  -- Default to menu if type not specified
+  return get_current_menu_status()
+end
+
+local function find_menu_by_name(menu_name)
+  -- Search in menu_stack
+  for i, menu in ipairs(Menu.menu_stack) do
+    if menu.name == menu_name then
+      return "menu", Menu.menu_stack, i
+    end
+  end
+  -- Search in helper_stack
+  for i, helper in ipairs(Menu.helper_stack) do
+    if helper.name == menu_name then
+      return "helper", Menu.helper_stack, i
+    end
+  end
+  return nil, nil, nil
+end
+
+local function quit(param)
+  local stack, index, is_by_name
+  local menu_type = "menu" -- Default to menu
+
+  -- Determine if param is a menu name or menu type
+  if type(param) == "string" then
+    -- Try to find by name first
+    local found_type, found_stack, found_index = find_menu_by_name(param)
+    if found_stack then
+      -- Found by name
+      menu_type = found_type
+      stack = found_stack
+      index = found_index
+      is_by_name = true
+    else
+      -- If not found by name, treat as menu type
+      menu_type = param
+      stack = menu_type == "menu" and Menu.menu_stack or Menu.helper_stack
+      index = #stack
+      is_by_name = false
+    end
+  else
+    -- Default to current menu if param is not provided or invalid
+    stack = Menu.menu_stack
+    index = #stack
+    is_by_name = false
+  end
+
+  local current = stack[index]
+  if not current then
+    return
+  end
+
+  -- Delete current menu/helper's buffer and window
+  buffer.delete_buffer(current.buf_id)
+  window.exit_window(current.win_id)
+
+  -- Remove current menu/helper from stack
+  table.remove(stack, index)
+
+  -- If there are items left in the stack and we're not closing a specific menu by name,
+  -- reopen the previous one (the new top of the stack)
+  if #stack > 0 and not is_by_name then
+    local previous = stack[#stack]
+    -- Reopen the previous menu/helper
+    previous.buf_id, previous.config.width = buffer.create(Menu.menus[previous.name])
+    previous.win_id = window.open_window(previous.buf_id, previous.config)
+    vim.api.nvim_command "redraw"
+  end
+end
+
 local function open_menu(name, opt)
-  if Status.buf_id == nil then
-    Status.buf_id, Status.config.width = buffer.create(Menu.menus[name])
+  -- Get menu configuration
+  local menu_config = vim.deepcopy(Menu.menus[name].config)
+
+  -- Create new status and add to stack
+  local buf_id, width = buffer.create(Menu.menus[name])
+  menu_config.width = width
+
+  -- Apply options
+  for i, v in pairs(opt or {}) do
+    menu_config[i] = v
   end
 
-  for i, v in pairs(Menu.menus[name].config) do
-    Status.config[i] = Status.config[i] or v
-  end
-
-  Status.win_id = window.open_window(Status.buf_id, Status.config)
+  local win_id = window.open_window(buf_id, menu_config)
   vim.api.nvim_command "redraw"
+
+  -- Create and push status to menu stack
+  local status = create_status(name, buf_id, win_id, menu_config)
+  table.insert(Menu.menu_stack, status)
 
   vim.schedule(function()
     local loop = true
@@ -73,12 +164,12 @@ local function open_menu(name, opt)
       -- run
       elseif index ~= nil then
         item = Menu.menus[name].items[index]
-        loop = not (item[1].quit == nil and Status.config.quit or item[1].quit)
+        loop = not (item[1].quit == nil and menu_config.quit or item[1].quit)
 
         -- if quit = true
         if loop == false then
           quit()
-          if item[2] ~= nil and type(item[2]) == "string" then
+          if item[2] ~= nil and type(item[2]) == "function" then
             item[2]()
           end
           return
@@ -86,13 +177,17 @@ local function open_menu(name, opt)
         -- if quit = false
         else
           item[2]()
-          buffer.update(Status.buf_id, Menu.menus[name])
-          vim.api.nvim_command "redraw"
+          -- Update current menu's buffer
+          local current = get_current_status "menu"
+          if current and current.buf_id == buf_id then
+            buffer.update(current.buf_id, Menu.menus[name])
+            vim.api.nvim_command "redraw"
+          end
         end
 
       -- if not define keymap
-      elseif Status.config.foreign_keys == true then
-        loop = not Status.config.quit
+      elseif menu_config.foreign_keys == true then
+        loop = not menu_config.quit
 
         local current_window_id = vim.api.nvim_get_current_win()
         vim.api.nvim_win_call(current_window_id, function()
@@ -100,13 +195,12 @@ local function open_menu(name, opt)
         end)
 
         if loop == true then
-          window.exit_window(Status.win_id)
-          Status.win_id = nil
+          -- Reopen current menu
           M.open(name, opt)
           return
         end
       else
-        loop = not Status.config.quit
+        loop = not menu_config.quit
       end
     end
 
@@ -114,30 +208,31 @@ local function open_menu(name, opt)
   end)
 end
 
--- TODO: open helper
 local function open_helper(name, opt)
-  if Status.buf_id == nil then
-    Status.buf_id, Status.config.width = buffer.create(Menu.menus[name])
+  -- Get helper configuration
+  local helper_config = vim.deepcopy(Menu.menus[name].config)
+
+  -- Create new status and add to stack
+  local buf_id, width = buffer.create(Menu.menus[name])
+  helper_config.width = width
+
+  -- Apply options
+  for i, v in pairs(opt or {}) do
+    helper_config[i] = v
   end
 
-  for i, v in pairs(Menu.menus[name].config) do
-    Status.config[i] = Status.config[i] or v
-  end
-
-  Status.win_id = window.open_window(Status.buf_id, Status.config)
+  local win_id = window.open_window(buf_id, helper_config)
   vim.api.nvim_command "redraw"
+
+  -- Create and push status to helper stack
+  local status = create_status(name, buf_id, win_id, helper_config)
+  table.insert(Menu.helper_stack, status)
 end
 
 function M.open(name, opt)
   opt = opt or {}
   opt.type = opt.type or Menu.menus[name].config.type
-  vim.notify("opt" .. opt.type)
 
-  for i, v in pairs(opt) do
-    Status.config[i] = v
-  end
-
-  Status.name = name
   if opt.type == "menu" then
     open_menu(name, opt)
   elseif opt.type == "helper" then
@@ -145,7 +240,6 @@ function M.open(name, opt)
   end
 end
 
--- TODO: add menu
 function M.add(name, menu)
   menu.config.flag_len = menu.config.flag_len == nil and 1 or menu.config.flag_len
   menu.config.format = menu.config.format == nil and "[${KEY}] ${DESC} ${FLAG}" or menu.config.format
@@ -178,33 +272,62 @@ function M.add(name, menu)
   Menu.menus[name] = menu
 end
 
--- TODO: close helper
-function M.close()
-  quit()
-end
--- TODO: refresh helper
-function M.refresh()
-  if Status.buf_id ~= nil then
-    local name = Status.name
-
-    buffer.update(Status.buf_id, Menu.menus[name])
-    window.exit_window(Status.win_id)
-    Status.win_id = nil
-
-    M.open(name, Status.config)
+function M.close(menu_name)
+  -- If menu_name is provided, close by name
+  if menu_name then
+    quit(menu_name)
+  else
+    -- Default to closing the current menu if no name is provided
+    quit "menu"
   end
 end
 
--- TODO: get current status
-function M.get_status()
+function M.quit_menu()
+  -- For backward compatibility, quit current menu
+  quit "menu"
+end
+
+function M.quit_helper()
+  -- For backward compatibility, quit current helper
+  quit "helper"
+end
+
+function M.refresh(menu_type)
+  menu_type = menu_type or "menu"
+  local current = get_current_status(menu_type)
+  if current then
+    local name = current.name
+
+    buffer.update(current.buf_id, Menu.menus[name])
+    window.exit_window(current.win_id)
+    current.win_id = nil
+
+    M.open(name, current.config)
+  end
+end
+
+function M.refresh_menu()
+  M.refresh "menu"
+end
+
+function M.refresh_helper()
+  M.refresh "helper"
+end
+
+function M.get_status(menu_type)
+  menu_type = menu_type or "menu"
   local res = {}
-  if Status.buf_id ~= nil then
+  local current = get_current_status(menu_type)
+  if current then
     res.enabled = true
-    for i, v in pairs(Status) do
+    res.stack_size = menu_type == "menu" and #Menu.menu_stack or #Menu.helper_stack
+    res.current = current
+    for i, v in pairs(current) do
       res[i] = v
     end
   else
     res.enabled = false
+    res.stack_size = 0
   end
   return res
 end
