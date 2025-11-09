@@ -219,3 +219,14 @@ require("lazy").setup({
 ```
 
 </details>
+
+## Highlight Groups
+
+nvim-menu provides 4 highlight groups that you can customize:
+
+| Highlight Group | Default Link | Description |
+|----------------|-------------|-------------|
+| NvimMenuKey | Keyword | Highlights the key bindings in the menu |
+| NvimMenuDesc | Normal | Highlights the descriptions in the menu |
+| NvimMenuFlag | String | Highlights the flags or status indicators in the menu |
+| NvimMenuNormal | Normal | Highlights the regular text in the menu |

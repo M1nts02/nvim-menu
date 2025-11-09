@@ -2,6 +2,30 @@ local M = {}
 local window = require "nvim-menu.window"
 local buffer = require "nvim-menu.buffer"
 
+-- Define highlight groups
+local function define_highlights()
+  -- Check and set default highlight groups, only if not defined
+  local function set_default_hl(group, link_to)
+    -- Try to get current highlight group settings
+    local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
+    -- Check if highlight group exists and contains actual highlight properties
+    if not ok or not hl or vim.tbl_isempty(hl) then
+      -- If highlight group doesn't exist or is undefined, set default link
+      vim.api.nvim_set_hl(0, group, { link = link_to, default = true })
+    end
+  end
+
+  -- Set default highlight groups for various components
+  set_default_hl("NvimMenuKey", "Keyword")
+  set_default_hl("NvimMenuDesc", "Normal")
+  set_default_hl("NvimMenuFlag", "String")
+  -- Set default highlight group for normal text
+  set_default_hl("NvimMenuNormal", "Normal")
+end
+
+-- Define highlight groups on initialization
+define_highlights()
+
 local Menu = {
   menus = {},
   status = {
